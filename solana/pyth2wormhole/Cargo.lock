@@ -245,21 +245,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bridge"
-version = "0.1.0"
-dependencies = [
- "borsh",
- "byteorder",
- "primitive-types",
- "serde",
- "sha3",
- "solana-program",
- "solitaire",
- "solitaire-client",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "bs58"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2064,7 +2049,6 @@ name = "pyth2wormhole"
 version = "0.1.0"
 dependencies = [
  "borsh",
- "bridge",
  "pyth-client",
  "rocksalt",
  "serde",
@@ -2074,6 +2058,7 @@ dependencies = [
  "solitaire",
  "solitaire-client",
  "wasm-bindgen",
+ "wormhole-bridge-solana",
 ]
 
 [[package]]
@@ -2081,11 +2066,12 @@ name = "pyth2wormhole-client"
 version = "0.1.0"
 dependencies = [
  "borsh",
- "bridge",
  "clap 3.0.0-beta.2",
  "env_logger",
  "log",
  "pyth2wormhole",
+ "serde",
+ "serde_yaml",
  "shellexpand",
  "solana-client",
  "solana-program",
@@ -2093,6 +2079,7 @@ dependencies = [
  "solana-transaction-status",
  "solitaire",
  "solitaire-client",
+ "wormhole-bridge-solana",
 ]
 
 [[package]]
@@ -4054,6 +4041,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
 dependencies = [
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "wormhole-bridge-solana"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "byteorder",
+ "primitive-types",
+ "serde",
+ "sha3",
+ "solana-program",
+ "solitaire",
+ "solitaire-client",
 ]
 
 [[package]]
