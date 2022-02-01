@@ -255,8 +255,11 @@ pub fn attest(ctx: &ExecutionContext, accs: &mut Attest, data: AttestData) -> So
         bridge::instruction::Instruction::PostMessage,
         PostMessageData {
             nonce: data.nonce,
-            payload: batch_serialize(attestations.as_slice().iter()),
-            consistency_level: data.consistency_level,
+            payload: batch_serialize(attestations.as_slice().iter()).map_err(|e| {
+		trace!(e.to_string());
+		ProgramError::InvalidAccountData
+	    })?,
+	    consistency_level: data.consistency_level,
         },
     );
 
