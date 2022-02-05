@@ -1,0 +1,77 @@
+#syntax=docker/dockerfile:1.2@sha256:e2a8561e419ab1ba6b2fe6cbdf49fd92b95912df1cf7d313c3e2230a333fdbcc
+FROM docker.io/library/rust:1.49@sha256:a50165ea96983c21832578afb1c8c028674c965bc1ed43b607871b1f362e06a5
+RUN apt-get update && apt-get install -yq libssl-dev libudev-dev pkg-config zlib1g-dev llvm clang ncat
+RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+RUN rustup default nightly-2021-08-01
+RUN rustup component add rustfmt
+
+# Ethereum
+
+ADD ethereum /usr/src/ethereum
+WORKDIR /usr/src/ethereum
+RUN --mount=type=cache,target=/root/.cache \
+	--mount=type=cache,target=/root/.npm \
+    npm ci
+
+ADD clients/safecoin /usr/src/clients/safecoin
+
+WORKDIR /usr/src/clients/safecoin/token_bridge
+RUN --mount=type=cache,target=/root/.cache \
+	--mount=type=cache,target=/root/.npm \
+    set -xe && \
+	npm ci && \
+	npm run build-contracts && \
+	npm run build
+
+WORKDIR /usr/src/clients/safecoin/nft_bridge
+RUN --mount=type=cache,target=/root/.cache \
+	--mount=type=cache,target=/root/.npm \
+    set -xe && \
+	npm ci && \
+	npm run build-contracts && \
+	npm run build
+
+ADD proto /usr/src/proto
+
+# Safecoin
+
+# RUN mkdir -p /root/.local/share/safecoin/install/active_release/bin
+
+# RUN git clone https://github.com/Fair-Exchange/Safecoin.git /usr/src/safecoin-install && \
+#     cd /usr/src/safecoin-install && \
+#     cargo build --release --target-dir /tmp/safecoin-install && \
+#     find /tmp/safecoin-install/release/ -maxdepth 1 -type f -executable -exec cp {} /root/.local/share/safecoin/install/active_release/bin \; && \
+#     cp -r /usr/src/safecoin-install/sdk /root/.local/share/safecoin/install/active_release/bin && \
+#     rm -rf /usr/src/safecoin-install
+
+# RUN git clone https://github.com/Fair-Exchange/safecoin-program-library.git /usr/src/safecoin-program-library && \
+#     cd /usr/src/safecoin-program-library && \
+#     cargo build --release --target-dir /tmp/safecoin-program-library && \
+#     find /tmp/safecoin-program-library/release/ -maxdepth 1 -type f -executable -exec cp {} /root/.local/share/safecoin/install/active_release/bin \; && \
+#     rm -rf /usr/src/safecoin-program-library
+
+COPY safecoin/safecoin.tar.gz /tmp
+RUN mkdir -p /root/.local/share/safecoin/install/active_release/bin && \
+    tar -xzvf /tmp/safecoin.tar.gz -C /root/.local/share/safecoin/install/active_release/bin && \
+    rm /tmp/safecoin.tar.gz
+
+ENV SAFECOIN_BIN_PATH="/root/.local/share/safecoin/install/active_release/bin"
+ENV PATH="$SAFECOIN_BIN_PATH:$PATH"
+
+ADD safecoin /usr/src/safecoin
+WORKDIR /usr/src/safecoin
+
+RUN safecoin config set --keypair "/usr/src/safecoin/keys/safecoin-devnet.json"
+RUN safecoin config set --url "http://safecoin-devnet:8328"
+
+ENV EMITTER_ADDRESS="11111111111111111111111111111115"
+ENV BRIDGE_ADDRESS="brgQ6qpnsT5krRmC3ooVUMixcqWYLk95QLoN8RmECPj"
+
+RUN --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/usr/src/safecoin/bridge/target \
+    --mount=type=cache,target=/usr/src/safecoin/modules/token_bridge/target \
+    set -xe && \
+    cargo build --manifest-path ./bridge/Cargo.toml --package client --release && \
+    cargo build --manifest-path ./modules/token_bridge/Cargo.toml --package client --release && \
+    cp bridge/target/release/client /usr/local/bin && \
+    cp modules/token_bridge/target/release/client /usr/local/bin/token-bridge-client

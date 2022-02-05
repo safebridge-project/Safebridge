@@ -1,0 +1,136 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: safecoin-devnet
+  labels:
+    app: safecoin-devnet
+spec:
+  ports:
+    - port: 8328
+      name: rpc
+      protocol: TCP
+    - port: 19900
+      name: faucet
+      protocol: TCP
+  clusterIP: None
+  selector:
+    app: safecoin-devnet
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: safecoin-devnet
+spec:
+  selector:
+    matchLabels:
+      app: safecoin-devnet
+  serviceName: safecoin-devnet
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: safecoin-devnet
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: devnet
+          image: safecoin-contract
+          command:
+            - solana-test-validator
+            # Token
+            - --bpf-program
+            - ToKLx75MGim1d1jRusuVX8xvdvvbSDESVaNXpRA9PHN
+            - /opt/safecoin/deps/safe_token.so
+            # Memo
+            - --bpf-program
+            - MEMWKbqsjEB8o972BvDHExZFSauzGZKvB4xHDVPFowh
+            - /opt/safecoin/deps/safe_memo.so
+            # Associated Token
+            - --bpf-program
+            - AToD9iqHSc2fhEP9Jp7UYA6mRjHQ4CTWyzCsw8X3tH7K
+            - /opt/safecoin/deps/safe_associated_token_account.so
+            # Token Lending
+            - --bpf-program
+            - LENeX3L4CE1euBZp4zUNuicLP2SUZCbgXYZgBpZ9hWZ
+            - /opt/safecoin/deps/safe_token_lending.so
+            # Token Vault
+            - --bpf-program
+            - vau3q7e1FkBCACg8o1fFMYz8WmMbcocjBX2LgXGZypU
+            - /opt/safecoin/deps/safe_token_vault.so
+            # Token Metadata
+            - --bpf-program
+            - mtaPsdZX7fCyCyTXjGpgiiqXQAvBNSZMBWdvMxpBB4j
+            - /opt/safecoin/deps/safe_token_metadata.so
+            # Bridge
+            - --bpf-program
+            - brgQ6qpnsT5krRmC3ooVUMixcqWYLk95QLoN8RmECPj
+            - /opt/safecoin/deps/bridge.so
+            # Token Bridge
+            - --bpf-program
+            - tbr8Mqw75gBRHdznJeUV16wUVotczJmF8nZ8tEkAgjj
+            - /opt/safecoin/deps/token_bridge.so
+            # NFT Bridge
+            - --bpf-program
+            - ntb1BtqepucWoKegbL2DkRuehLqtcnsA8jJrqmjq5ZD
+            - /opt/safecoin/deps/nft_bridge.so
+            # CPI Poster
+            - --bpf-program
+            - CP1co2QMMoDPbsmV7PGcUTLFwyhgCgTXt25gLQ5LewE1
+            - /opt/safecoin/deps/cpi_poster.so
+            # TODO(Victor): Temporary commented
+            # - --bpf-program
+            # - gMYYig2utAxVoXnM9UhtTWrt8e7x2SVBZqsWZJeT5Gw # Derived from pyth_program.json
+            # - /opt/safecoin/deps/pyth_oracle.so
+            # - --bpf-program
+            # - P2WH424242424242424242424242424242424242424
+            # - /opt/safecoin/deps/pyth2wormhole.so
+            # - --bpf-program
+            # - Ex9bCdVMSfx7EzB3pgSi2R4UHwJAXvTw18rBQm5YQ8gK
+            # - /opt/safecoin/deps/wormhole_migration.so
+            - --log
+          ports:
+            - containerPort: 8001
+              name: gossip
+              protocol: UDP
+            - containerPort: 8003
+              name: tpu
+              protocol: UDP
+            - containerPort: 8004
+              name: tpufwd
+              protocol: UDP
+            - containerPort: 8000
+              name: tvu
+              protocol: UDP
+            - containerPort: 8002
+              name: tvufwd
+              protocol: UDP
+            - containerPort: 8006
+              name: repair
+              protocol: UDP
+            - containerPort: 8007
+              name: serverepair
+              protocol: UDP
+            - containerPort: 8328
+              name: rpc
+              protocol: TCP
+            - containerPort: 8329
+              name: pubsub
+              protocol: TCP
+            - containerPort: 9900
+              name: faucet
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              port: rpc
+              path: /health
+            periodSeconds: 1
+        - name: setup
+          image: bridge-client-safecoin
+          command:
+            - /usr/src/safecoin/devnet_setup.sh
+          readinessProbe:
+            tcpSocket:
+              port: 2000
+            periodSeconds: 1
+            failureThreshold: 300

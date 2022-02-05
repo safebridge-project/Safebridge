@@ -1,0 +1,88 @@
+# syntax=docker.io/docker/dockerfile:experimental@sha256:de85b2f3a3e8a2f7fe48e8e84a65f6fdd5cd5183afa6412fff9caa6871649c44
+FROM docker.io/library/rust:1.49@sha256:a50165ea96983c21832578afb1c8c028674c965bc1ed43b607871b1f362e06a5 AS build
+
+RUN apt-get update && apt-get install -y libssl-dev libudev-dev pkg-config zlib1g-dev llvm clang
+RUN rustup component add rustfmt
+RUN rustup default nightly-2021-08-01
+
+WORKDIR /usr/src/bridge
+
+RUN cargo install wasm-pack --vers 0.9.1
+
+ENV RUST_LOG="solana_runtime::system_instruction_processor=trace,solana_runtime::message_processor=trace,solana_bpf_loader=debug,solana_rbpf=debug"
+ENV EMITTER_ADDRESS="11111111111111111111111111111115"
+ENV BRIDGE_ADDRESS="brgQ6qpnsT5krRmC3ooVUMixcqWYLk95QLoN8RmECPj"
+
+COPY bridge bridge
+COPY modules modules
+COPY solitaire solitaire
+COPY migration migration
+COPY pyth2wormhole pyth2wormhole
+
+# Compile Wormhole
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_bridge,target=bridge/target \
+    cd bridge/program && /usr/local/cargo/bin/wasm-pack build --target bundler -d bundler -- --features wasm
+
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_bridge,target=bridge/target \
+    cd bridge/program && /usr/local/cargo/bin/wasm-pack build --target nodejs -d nodejs -- --features wasm
+
+# Compile Token Bridge
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_token_bridge,target=modules/token_bridge/target \
+    cd modules/token_bridge/program && /usr/local/cargo/bin/wasm-pack build --target bundler -d bundler -- --features wasm
+
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_token_bridge,target=modules/token_bridge/target \
+    cd modules/token_bridge/program && /usr/local/cargo/bin/wasm-pack build --target nodejs -d nodejs -- --features wasm
+
+# Compile Migration
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_migration,target=migration/target \
+    cd migration && /usr/local/cargo/bin/wasm-pack build --target bundler -d bundler -- --features wasm
+
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_migration,target=migration/target \
+    cd migration && /usr/local/cargo/bin/wasm-pack build --target nodejs -d nodejs -- --features wasm
+
+# Compile NFT Bridge
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_nft_bridge,target=modules/nft_bridge/target \
+    cd modules/nft_bridge/program && /usr/local/cargo/bin/wasm-pack build --target bundler -d bundler -- --features wasm
+
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_nft_bridge,target=modules/nft_bridge/target \
+    cd modules/nft_bridge/program && /usr/local/cargo/bin/wasm-pack build --target nodejs -d nodejs -- --features wasm
+
+# Compile pyth2wormhole
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_pyth2wormhole,target=pyth2wormhole/target \
+    cd pyth2wormhole/program \
+    && /usr/local/cargo/bin/wasm-pack build --target bundler -d bundler -- --features wasm
+
+RUN --mount=type=cache,id=safecoin_cache,target=/root/.cache \
+	--mount=type=cache,id=safecoin_pyth2wormhole,target=pyth2wormhole/target \
+    cd pyth2wormhole/program \
+    && /usr/local/cargo/bin/wasm-pack build --target nodejs -d nodejs -- --features wasm
+
+FROM scratch AS export
+
+COPY --from=build /usr/src/bridge/bridge/program/bundler sdk/js/src/safecoin/core
+COPY --from=build /usr/src/bridge/modules/token_bridge/program/bundler sdk/js/src/safecoin/token
+COPY --from=build /usr/src/bridge/migration/bundler sdk/js/src/safecoin/migration
+COPY --from=build /usr/src/bridge/modules/nft_bridge/program/bundler sdk/js/src/safecoin/nft
+COPY --from=build /usr/src/bridge/pyth2wormhole/program/bundler third_party/pyth/p2w-sdk/src/safecoin/p2w-core
+COPY --from=build /usr/src/bridge/bridge/program/bundler explorer/wasm/core
+COPY --from=build /usr/src/bridge/modules/token_bridge/program/bundler explorer/wasm/token
+COPY --from=build /usr/src/bridge/modules/nft_bridge/program/bundler explorer/wasm/nft
+COPY --from=build /usr/src/bridge/bridge/program/bundler third_party/pyth/p2w-sdk/src/safecoin/wormhole-core
+
+COPY --from=build /usr/src/bridge/bridge/program/nodejs sdk/js/src/safecoin/core-node
+COPY --from=build /usr/src/bridge/modules/token_bridge/program/nodejs sdk/js/src/safecoin/token-node
+COPY --from=build /usr/src/bridge/migration/nodejs sdk/js/src/safecoin/migration-node
+COPY --from=build /usr/src/bridge/modules/nft_bridge/program/nodejs sdk/js/src/safecoin/nft-node
+
+COPY --from=build /usr/src/bridge/bridge/program/nodejs clients/safecoin/pkg/core
+COPY --from=build /usr/src/bridge/modules/token_bridge/program/nodejs clients/safecoin/pkg/token
+COPY --from=build /usr/src/bridge/modules/nft_bridge/program/nodejs clients/safecoin/pkg/nft

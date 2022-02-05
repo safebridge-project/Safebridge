@@ -1,0 +1,24 @@
+[package]
+name = "safe-token-metadata"
+version = "0.0.1"
+description = "Metaplex Metadata"
+authors = ["Metaplex Maintainers <maintainers@metaplex.com>"]
+repository = "https://github.com/metaplex-foundation/metaplex"
+license = "Apache-2.0"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+num-derive = "0.3"
+arrayref = "0.3.6"
+num-traits = "0.2"
+safecoin-program = "1.7.17"
+safe-token = { version = "=3.2.0", features = ["no-entrypoint"] }
+safe-token-vault = { path = "../token-vault", features = [ "no-entrypoint" ], version="0.0.1" }
+thiserror = "1.0"
+borsh = "0.9.1"

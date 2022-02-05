@@ -1,0 +1,22 @@
+[package]
+name = "client"
+version = "0.1.0"
+authors = ["Stan Drozd <stan@nexantic.com>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "1.0.40"
+borsh = "0.9.0"
+bridge = { path = "../program", features = ["client"] }
+cpi-poster = { path = "../cpi_poster", features = ["no-entrypoint"] }
+clap = "2.33.0"
+rand = "0.7.3"
+shellexpand = "2.1.0"
+safecoin-client = "=1.7.17"
+safecoin-program = "=1.7.17"
+safecoin-sdk = "=1.7.17"
+safecoin-cli-config = "=1.7.17"
+solitaire = { path = "../../solitaire/program" }
+solitaire-client = { path = "../../solitaire/client" }
+safecoin-clap-utils = "=1.7.17"
+hex = "0.4.3"
